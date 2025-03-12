@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.0.1-cuda11.8-cudnn8-runtime-ubuntu22.04 AS builder
+FROM pytorch/pytorch:2.4.0-cuda11.8-cudnn9-devel AS builder
 
 # Install build dependencies
 RUN apt-get update && \
@@ -64,7 +64,7 @@ RUN conda clean --all -f -y
 RUN rdfind -makesymlinks true /opt/conda
 
 # Final stage
-FROM pytorch/pytorch:2.0.1-cuda11.8-cudnn8-runtime-ubuntu22.04 AS final
+FROM pytorch/pytorch:2.4.0-cuda11.8-cudnn9-devel AS final
 
 WORKDIR /app
 COPY --from=builder /usr/local/bin/gxx-wrapper /usr/local/bin/gxx-wrapper
