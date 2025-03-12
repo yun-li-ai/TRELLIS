@@ -27,7 +27,7 @@ app.add_middleware(
 )
 
 MAX_SEED = np.iinfo(np.int32).max
-TMP_DIR = "/workspace/Trellis-demo"
+TMP_DIR = "/tmp/Trellis-demo"
 os.makedirs(TMP_DIR, exist_ok=True)
 
 def cleanup_old_files(directory: str, max_age_hours: int = 24):
