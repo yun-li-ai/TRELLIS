@@ -34,7 +34,7 @@ RUN conda run -n py310 pip install -r https://raw.githubusercontent.com/NVIDIAGa
 RUN conda run -n py310 pip install kaolin==0.17.0 -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.4.0_cu118.html
 
 # Install diso and other dependencies
-RUN conda run -n py310 pip install diso
+# RUN conda run -n py310 pip install diso
 
 # Verify Kaolin installation
 RUN conda run -n py310 python -c "import kaolin; print(kaolin.__version__)"
