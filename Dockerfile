@@ -71,8 +71,12 @@ RUN git clone https://github.com/autonomousvision/mip-splatting.git /tmp/mip-spl
 # Install diffoctreerast
 RUN pip install git+https://github.com/JeffreyXiang/diffoctreerast.git
 
-# Run setup.sh with remaining flags
-RUN ./setup.sh --basic --flash-attn
+# Add explicit flash-attn installation before setup.sh
+RUN pip install flash-attn && \
+    pip install einops  # flash-attn dependency
+
+# Run setup.sh with flash-attn flag
+RUN ./setup.sh --basic
 
 # Install FastAPI dependencies
 RUN pip install fastapi uvicorn python-multipart optree>=0.13.0
