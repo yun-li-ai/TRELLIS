@@ -5,7 +5,9 @@ FROM pytorch/pytorch:2.4.0-cuda11.8-cudnn9-devel
 WORKDIR /app
 
 # Set environment variables early
-ENV PYTHONPATH=/app:${PYTHONPATH}
+ENV PYTHONPATH=/app
+# If you really need to append to an existing PYTHONPATH, use:
+# ENV PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}/app"
 ENV ATTN_BACKEND=flash-attn
 ENV SPCONV_ALGO=native
 ENV TORCH_CUDA_ARCH_LIST="7.0;7.5;8.0;8.6"
@@ -48,13 +50,15 @@ RUN chmod +x setup.sh
 RUN pip install kaolin==0.17.0 -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.4.0_cu118.html && \
     pip install xformers==0.0.27.post2 --index-url https://download.pytorch.org/whl/cu118 && \
     pip install flash-attn && \
-    pip install spconv-cu118
-
-# After installing critical dependencies, add:
-RUN python -c "import torch; import kaolin; import xformers; print(f'PyTorch {torch.__version__}, Kaolin {kaolin.__version__}, xformers {xformers.__version__}')"
+    pip install spconv-cu118 && \
+    pip install git+https://github.com/NVlabs/nvdiffrast.git && \
+    pip install git+https://github.com/autonomousvision/mip-splatting.git && \
+    pip install git+https://github.com/JeffreyXiang/diffoctreerast.git && \
+    # Verify installations
+    python -c "import torch; import kaolin; import xformers; import nvdiffrast; print(f'PyTorch {torch.__version__}, Kaolin {kaolin.__version__}, xformers {xformers.__version__}, nvdiffrast installed')"
 
 # Run setup.sh with remaining flags
-RUN ./setup.sh --basic --diffoctreerast --mipgaussian --nvdiffrast
+RUN ./setup.sh --basic
 
 # Install FastAPI dependencies
 RUN pip install fastapi uvicorn python-multipart optree>=0.13.0
