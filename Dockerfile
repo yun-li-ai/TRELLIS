@@ -47,15 +47,37 @@ RUN printf '#!/usr/bin/env bash\nexec /usr/bin/g++ -I/usr/local/cuda/include -I/
 RUN chmod +x setup.sh
 
 # Install Kaolin and other critical dependencies
-RUN pip install kaolin==0.17.0 -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.4.0_cu118.html && \
-    pip install xformers==0.0.27.post2 --index-url https://download.pytorch.org/whl/cu118 && \
-    pip install flash-attn && \
-    pip install spconv-cu118 && \
-    pip install git+https://github.com/NVlabs/nvdiffrast.git && \
-    pip install git+https://github.com/autonomousvision/mip-splatting.git && \
-    pip install git+https://github.com/JeffreyXiang/diffoctreerast.git && \
-    # Verify installations
-    python -c "import torch; import kaolin; import xformers; import nvdiffrast; print(f'PyTorch {torch.__version__}, Kaolin {kaolin.__version__}, xformers {xformers.__version__}, nvdiffrast installed')"
+RUN pip install kaolin==0.17.0 -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.4.0_cu118.html
+
+# Install xformers
+RUN pip install xformers==0.0.27.post2 --index-url https://download.pytorch.org/whl/cu118
+
+# Install flash-attn
+RUN pip install flash-attn
+
+# Install spconv
+RUN pip install spconv-cu118
+
+# Install nvdiffrast
+RUN pip install git+https://github.com/NVlabs/nvdiffrast.git
+
+# Install diff-gaussian-rasterization from mip-splatting
+RUN git clone https://github.com/autonomousvision/mip-splatting.git /tmp/mip-splatting && \
+    pip install /tmp/mip-splatting/submodules/diff-gaussian-rasterization && \
+    rm -rf /tmp/mip-splatting
+
+# Install diffoctreerast
+RUN pip install git+https://github.com/JeffreyXiang/diffoctreerast.git
+
+# Verify installations
+RUN python -c "import torch; import kaolin; import xformers; import nvdiffrast; import flash_attn; import spconv; \
+    from trellis.representations import Gaussian, MeshExtractResult; \
+    print(f'PyTorch {torch.__version__}, Kaolin {kaolin.__version__}, xformers {xformers.__version__}, \
+    nvdiffrast, flash_attn {flash_attn.__version__}, spconv {spconv.__version__} installed')"
+
+# Add before setup.sh:
+RUN pip install pillow imageio imageio-ffmpeg tqdm easydict opencv-python-headless \
+    scipy ninja rembg onnxruntime trimesh xatlas pyvista pymeshfix igraph transformers
 
 # Run setup.sh with remaining flags
 RUN ./setup.sh --basic
