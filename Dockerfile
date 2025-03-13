@@ -46,20 +46,21 @@ RUN printf '#!/usr/bin/env bash\nexec /usr/bin/g++ -I/usr/local/cuda/include -I/
 # Ensure setup.sh is executable
 RUN chmod +x setup.sh
 
+# Install basic dependencies first
+RUN pip install pillow imageio imageio-ffmpeg tqdm easydict opencv-python-headless \
+    scipy ninja rembg onnxruntime trimesh xatlas pyvista pymeshfix igraph transformers
+
 # Install Kaolin and other critical dependencies
 RUN pip install kaolin==0.17.0 -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.4.0_cu118.html
 
 # Install xformers
 RUN pip install xformers==0.0.27.post2 --index-url https://download.pytorch.org/whl/cu118
 
-# Install flash-attn
-RUN pip install flash-attn
-
 # Install spconv
 RUN pip install spconv-cu118
 
 # Install nvdiffrast
-RUN pip install git+https://github.com/NVlabs/nvdiffrast.git
+RUN pip install git+https://github.com/NVlabs/nvdiffrast.git@v0.3.3
 
 # Install diff-gaussian-rasterization from mip-splatting
 RUN git clone https://github.com/autonomousvision/mip-splatting.git /tmp/mip-splatting && \
@@ -69,21 +70,73 @@ RUN git clone https://github.com/autonomousvision/mip-splatting.git /tmp/mip-spl
 # Install diffoctreerast
 RUN pip install git+https://github.com/JeffreyXiang/diffoctreerast.git
 
-# Verify installations
-RUN python -c "import torch; import kaolin; import xformers; import nvdiffrast; import flash_attn; import spconv; \
-    from trellis.representations import Gaussian, MeshExtractResult; \
-    print(f'PyTorch {torch.__version__}, Kaolin {kaolin.__version__}, xformers {xformers.__version__}, \
-    nvdiffrast, flash_attn {flash_attn.__version__}, spconv {spconv.__version__} installed')"
-
-# Add before setup.sh:
-RUN pip install pillow imageio imageio-ffmpeg tqdm easydict opencv-python-headless \
-    scipy ninja rembg onnxruntime trimesh xatlas pyvista pymeshfix igraph transformers
-
 # Run setup.sh with remaining flags
-RUN ./setup.sh --basic
+RUN ./setup.sh --basic --flash-attn
 
 # Install FastAPI dependencies
 RUN pip install fastapi uvicorn python-multipart optree>=0.13.0
+
+# Replace the verification RUN command with a simpler one
+RUN python -c "import torch; import kaolin; import xformers; print(f'PyTorch {torch.__version__}, Kaolin {kaolin.__version__}, xformers {xformers.__version__}')"
+
+# Add a startup script
+COPY <<EOF /app/verify_cuda.sh
+#!/bin/bash
+set -e  # Exit on any error
+
+check_cuda() {
+    echo "Checking CUDA setup..."
+    if ! python -c "import torch; assert torch.cuda.is_available(), 'CUDA not available'"; then
+        echo "ERROR: CUDA is not available"
+        exit 1
+    fi
+    
+    if ! python -c "import torch; assert torch.version.cuda == '11.8', f'Wrong CUDA version: {torch.version.cuda}'"; then
+        echo "ERROR: Wrong CUDA version"
+        exit 1
+    fi
+    
+    echo "CUDA setup verified successfully"
+}
+
+check_dependencies() {
+    echo "Checking dependencies..."
+    python -c "
+import sys
+import torch
+import kaolin
+import xformers
+import nvdiffrast
+import flash_attn
+import spconv
+from trellis.representations import Gaussian, MeshExtractResult
+
+versions = {
+    'PyTorch': torch.__version__,
+    'Kaolin': kaolin.__version__,
+    'xformers': xformers.__version__,
+    'flash_attn': flash_attn.__version__,
+    'spconv': spconv.__version__
+}
+
+print('Versions:', versions)
+
+# Verify CUDA setup
+assert torch.cuda.is_available(), 'CUDA not available'
+assert torch.cuda.device_count() > 0, 'No GPU devices found'
+device = torch.cuda.current_device()
+print(f'Using GPU: {torch.cuda.get_device_name(device)}')"
+}
+
+main() {
+    check_cuda
+    check_dependencies
+    echo "All checks passed successfully!"
+}
+
+main
+EOF
+RUN chmod +x /app/verify_cuda.sh
 
 # Cleanup
 RUN conda clean -a -y
@@ -95,5 +148,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Set the default command
-CMD ["python", "headless_app.py"]
+# Modify CMD to run verification first
+CMD ["/bin/bash", "-c", "./verify_cuda.sh && python headless_app.py"]
