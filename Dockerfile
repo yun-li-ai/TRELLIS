@@ -43,8 +43,9 @@ RUN cd /app && \
 RUN printf '#!/usr/bin/env bash\nexec /usr/bin/g++ -I/usr/local/cuda/include -I/usr/local/cuda/include/crt "$@"\n' > /usr/local/bin/gxx-wrapper && \
     chmod +x /usr/local/bin/gxx-wrapper
 
-# Ensure setup.sh is executable
-RUN chmod +x setup.sh
+# Before making setup.sh executable, we should add shebang
+RUN echo '#!/bin/bash' | cat - setup.sh > temp && mv temp setup.sh && \
+    chmod +x setup.sh
 
 # Install basic dependencies first
 RUN pip install pillow imageio imageio-ffmpeg tqdm easydict opencv-python-headless \
