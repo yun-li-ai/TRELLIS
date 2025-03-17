@@ -1,0 +1,9 @@
+FROM sensor-sim-trellis-base:1.0.11-withmodels
+
+WORKDIR /app
+
+COPY headless_app.py /app/
+
+# No need to reinstall dependencies or run other setup steps
+
+# The CMD from the base image will still apply, which runs verify_cuda.sh and then headless_app.py
