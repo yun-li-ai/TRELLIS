@@ -76,7 +76,7 @@ def pack_state(gs: Gaussian, mesh: MeshExtractResult, trial_id: str) -> dict:
 
 @app.post("/process-image")
 async def process_image(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = [File(...)],
     seed: int = 0,
     randomize_seed: bool = True,
     ss_guidance_strength: float = 7.5,
@@ -85,7 +85,9 @@ async def process_image(
     slat_sampling_steps: int = 12
 ):
     # Read and process the uploaded image
-    image = Image.open(file.file)
+    # TODO(yun-li-ai): Support multiple images
+    # TODO(yun-li-ai): Check parameters
+    image = Image.open(files[0].file)
     trial_id, processed_image = preprocess_image(image)
 
     # Generate 3D model
@@ -123,7 +125,7 @@ async def process_image(
 
     return {
         "trial_id": trial_id,
-        "state": state,
+        # "state": state,
         "preview_video": f"/preview/{trial_id}"
     }
 

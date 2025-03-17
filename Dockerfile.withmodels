@@ -1,0 +1,18 @@
+# Use our previous image as base
+FROM sensor-sim-trellis-base:1.0.11
+
+# Create model directory
+WORKDIR /app/models
+
+# Copy the downloaded model files from the previous container
+# We'll need to get these files from a running container first using:
+# docker cp <container_id>:/app/models/pipeline.json ./models/
+# docker cp <container_id>:/app/models/ss_dec_conv3d_16l8_fp16.json ./models/
+# docker cp <container_id>:/app/models/ss_dec_conv3d_16l8_fp16.safetensors ./models/
+# docker cp <container_id>:/app/models/ss_flow_img_dit_L_16l8_fp16.json ./models/
+# docker cp <container_id>:/app/models/ss_flow_img_dit_L_16l8_fp16.safetensors ./models/
+
+COPY ./models/* /app/models/
+
+# Set working directory back
+WORKDIR /app 
