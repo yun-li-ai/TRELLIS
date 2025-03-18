@@ -27,7 +27,7 @@ app.add_middleware(
 )
 
 MAX_SEED = np.iinfo(np.int32).max
-TMP_DIR = "/tmp/Trellis-demo"
+TMP_DIR = "/tmp/sensor-sim-trellis-shared/output"
 os.makedirs(TMP_DIR, exist_ok=True)
 
 def cleanup_old_files(directory: str, max_age_hours: int = 24):
@@ -74,8 +74,8 @@ def pack_state(gs: Gaussian, mesh: MeshExtractResult, trial_id: str) -> dict:
         'trial_id': trial_id,
     }
 
-@app.post("/process-image")
-async def process_image(
+@app.post("/create-3d-model")
+async def create_3d_model(
     files: List[UploadFile] = [File(...)],
     seed: int = 0,
     randomize_seed: bool = True,
