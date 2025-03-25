@@ -3,7 +3,6 @@ from typing import *
 import torch
 import numpy as np
 import imageio
-import uuid
 import time
 from easydict import EasyDict as edict
 from PIL import Image
@@ -14,8 +13,19 @@ from trellis.representations import Gaussian, MeshExtractResult
 from trellis.utils import render_utils, postprocessing_utils
 import json
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 app = FastAPI()
+
+class Create3DModelRequestModel(BaseModel):
+    image_paths: List[str]
+    model_uuid: str
+    seed: int = 0
+    randomize_seed: bool = True
+    ss_guidance_strength: float = 7.5
+    ss_sampling_steps: int = 12
+    slat_guidance_strength: float = 3.0
+    slat_sampling_steps: int = 12
 
 # Add CORS middleware
 app.add_middleware(
@@ -78,17 +88,19 @@ def pack_state(gs: Gaussian, mesh: MeshExtractResult, trial_id: str) -> dict:
 
 @app.post("/create-3d-model-from-paths")
 async def create_3d_model_from_paths(
-    image_paths: List[str],
-    seed: int = 0,
-    randomize_seed: bool = True,
-    ss_guidance_strength: float = 7.5,
-    ss_sampling_steps: int = 12,
-    slat_guidance_strength: float = 3.0,
-    slat_sampling_steps: int = 12
+    request: Create3DModelRequestModel
 ):
+    image_paths = request.image_paths
+    model_uuid = request.model_uuid
+    seed = request.seed
+    randomize_seed = request.randomize_seed
+    ss_guidance_strength = request.ss_guidance_strength
+    ss_sampling_steps = request.ss_sampling_steps
+    slat_guidance_strength = request.slat_guidance_strength
+    slat_sampling_steps = request.slat_sampling_steps
+
     print(f"Creating 3D model from {len(image_paths)} images")
-    trial_id = str(uuid.uuid4())
-    os.makedirs(f"{TMP_DIR}/{trial_id}", exist_ok=True)
+    os.makedirs(f"{TMP_DIR}/{model_uuid}", exist_ok=True)
 
     errors = []
     images = {}
@@ -109,7 +121,7 @@ async def create_3d_model_from_paths(
     if not images:
         return {"error": "No valid images found", "details": errors}
 
-    processed_images = [preprocess_image(trial_id, image, image_name, output_image_paths) for image_name, image in images.items()]
+    processed_images = [preprocess_image(model_uuid, image, image_name, output_image_paths) for image_name, image in images.items()]
 
     # Generate 3D model
     if randomize_seed:
@@ -134,18 +146,18 @@ async def create_3d_model_from_paths(
     video = render_utils.render_video(outputs['gaussian'][0], num_frames=120)['color']
     video_geo = render_utils.render_video(outputs['mesh'][0], num_frames=120)['normal']
     video = [np.concatenate([video[i], video_geo[i]], axis=1) for i in range(len(video))]
-    video_path = f"{TMP_DIR}/{trial_id}/preview.mp4"
+    video_path = f"{TMP_DIR}/{model_uuid}/preview.mp4"
     imageio.mimsave(video_path, video, fps=15)
 
     # Pack state and return results
-    state = pack_state(outputs['gaussian'][0], outputs['mesh'][0], trial_id)
+    state = pack_state(outputs['gaussian'][0], outputs['mesh'][0], model_uuid)
 
     # Save state file
-    with open(f"{TMP_DIR}/{trial_id}/state.json", 'w') as f:
+    with open(f"{TMP_DIR}/{model_uuid}/state.json", 'w') as f:
         json.dump(state, f)
 
     # Generate and save GLB file directly from state
-    glb_path = f"{TMP_DIR}/{trial_id}/model.glb"
+    glb_path = f"{TMP_DIR}/{model_uuid}/model.glb"
     gs = Gaussian(
         aabb=state['gaussian']['aabb'],
         sh_degree=state['gaussian']['sh_degree'],
@@ -169,94 +181,35 @@ async def create_3d_model_from_paths(
     glb.export(glb_path)
 
     return {
-        "model_uuid": trial_id,
+        "model_uuid": model_uuid,
         "preview_video": video_path,
         "glb_file": glb_path,
         "output_images": output_image_paths,
         "errors": errors  # Include any errors encountered
     }
 
-
-# @app.post("/create-3d-model")
-# async def create_3d_model(
-#     files: List[UploadFile] = [File(...)],
-#     seed: int = 0,
-#     randomize_seed: bool = True,
-#     ss_guidance_strength: float = 7.5,
-#     ss_sampling_steps: int = 12,
-#     slat_guidance_strength: float = 3.0,
-#     slat_sampling_steps: int = 12
-# ):
-#     trial_id = str(uuid.uuid4())
-#     os.makedirs(f"{TMP_DIR}/{trial_id}", exist_ok=True)
-
-#     # Read and process the uploaded image
-#     # TODO(yun-li-ai): Support multiple images
-#     # TODO(yun-li-ai): Check parameters
-#     image = Image.open(files[0].file)
-#     trial_id, processed_image = preprocess_image(image)
-
-#     # Generate 3D model
-#     if randomize_seed:
-#         seed = np.random.randint(0, MAX_SEED)
-
-#     outputs = pipeline.run(
-#         processed_image,
-#         seed=seed,
-#         formats=["gaussian", "mesh"],
-#         preprocess_image=False,
-#         sparse_structure_sampler_params={
-#             "steps": ss_sampling_steps,
-#             "cfg_strength": ss_guidance_strength,
-#         },
-#         slat_sampler_params={
-#             "steps": slat_sampling_steps,
-#             "cfg_strength": slat_guidance_strength,
-#         },
-#     )
-
-#     # Generate preview video
-#     video = render_utils.render_video(outputs['gaussian'][0], num_frames=120)['color']
-#     video_geo = render_utils.render_video(outputs['mesh'][0], num_frames=120)['normal']
-#     video = [np.concatenate([video[i], video_geo[i]], axis=1) for i in range(len(video))]
-#     video_path = f"{TMP_DIR}/{trial_id}_preview.mp4"
-#     imageio.mimsave(video_path, video, fps=15)
-
-#     # Pack state and return results
-#     state = pack_state(outputs['gaussian'][0], outputs['mesh'][0], trial_id)
-
-#     # Save state file
-#     with open(f"{TMP_DIR}/{trial_id}_state.json", 'w') as f:
-#         json.dump(state, f)
-
-#     return {
-#         "trial_id": trial_id,
-#         # "state": state,
-#         "preview_video": f"/preview/{trial_id}"
-#     }
-
-@app.get("/preview/{trial_id}")
-async def get_preview(trial_id: str):
-    video_path = f"{TMP_DIR}/{trial_id}/preview.mp4"
+@app.get("/preview/{model_uuid}")
+async def get_preview(model_uuid: str):
+    video_path = f"{TMP_DIR}/{model_uuid}/preview.mp4"
     return FileResponse(video_path)
 
-@app.post("/extract-glb/{trial_id}")
+@app.post("/extract-glb/{model_uuid}")
 async def extract_glb(
-    trial_id: str,
+    model_uuid: str,
     mesh_simplify: float = 0.95,
     texture_size: int = 1024
 ):
     # Load the state file
-    state_path = f"{TMP_DIR}/{trial_id}/state.json"
+    state_path = f"{TMP_DIR}/{model_uuid}/state.json"
     if not os.path.exists(state_path):
-        return {"error": "Trial ID not found"}
+        return {"error": "Model UUID not found"}
 
     # Add this line to load the state
     with open(state_path, 'r') as f:
         state = json.load(f)
 
     # Generate GLB
-    glb_path = f"{TMP_DIR}/{trial_id}/model.glb"
+    glb_path = f"{TMP_DIR}/{model_uuid}/model.glb"
     gs = Gaussian(
         aabb=state['gaussian']['aabb'],
         sh_degree=state['gaussian']['sh_degree'],
@@ -279,7 +232,7 @@ async def extract_glb(
     glb = postprocessing_utils.to_glb(gs, mesh, simplify=mesh_simplify, texture_size=texture_size, verbose=False)
     glb.export(glb_path)
 
-    return FileResponse(glb_path, filename=f"{trial_id}.glb")
+    return FileResponse(glb_path, filename=f"{model_uuid}.glb")
 
 
 
