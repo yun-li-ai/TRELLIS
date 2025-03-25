@@ -51,10 +51,13 @@ async def startup_event():
 pipeline = TrellisImageTo3DPipeline.from_pretrained("JeffreyXiang/TRELLIS-image-large")
 pipeline.cuda()
 
-def preprocess_image(trial_id: str, image: Image.Image, image_name: str) -> Tuple[str, Image.Image]:
+def preprocess_image(trial_id: str, image: Image.Image, image_name: str, output_image_paths: List[str]) -> Tuple[str, Image.Image]:
     processed_image = pipeline.preprocess_image(image)
-    processed_image.save(f"{TMP_DIR}/{trial_id}/{image_name}.png")
+    image_path = f"{TMP_DIR}/{trial_id}/{image_name}.png"
+    processed_image.save(image_path)
+    output_image_paths.append(image_path)
     return processed_image
+
 
 def pack_state(gs: Gaussian, mesh: MeshExtractResult, trial_id: str) -> dict:
     return {
@@ -89,6 +92,7 @@ async def create_3d_model_from_paths(
 
     errors = []
     images = {}
+    output_image_paths = []
 
     # Check if file paths are valid and read images
     for path in image_paths:
@@ -105,7 +109,7 @@ async def create_3d_model_from_paths(
     if not images:
         return {"error": "No valid images found", "details": errors}
 
-    processed_images = [preprocess_image(trial_id, image, image_name) for image_name, image in images.items()]
+    processed_images = [preprocess_image(trial_id, image, image_name, output_image_paths) for image_name, image in images.items()]
 
     # Generate 3D model
     if randomize_seed:
@@ -140,9 +144,35 @@ async def create_3d_model_from_paths(
     with open(f"{TMP_DIR}/{trial_id}/state.json", 'w') as f:
         json.dump(state, f)
 
+    # Generate and save GLB file directly from state
+    glb_path = f"{TMP_DIR}/{trial_id}/model.glb"
+    gs = Gaussian(
+        aabb=state['gaussian']['aabb'],
+        sh_degree=state['gaussian']['sh_degree'],
+        mininum_kernel_size=state['gaussian']['mininum_kernel_size'],
+        scaling_bias=state['gaussian']['scaling_bias'],
+        opacity_bias=state['gaussian']['opacity_bias'],
+        scaling_activation=state['gaussian']['scaling_activation'],
+    )
+    gs._xyz = torch.tensor(state['gaussian']['_xyz'], device='cuda')
+    gs._features_dc = torch.tensor(state['gaussian']['_features_dc'], device='cuda')
+    gs._scaling = torch.tensor(state['gaussian']['_scaling'], device='cuda')
+    gs._rotation = torch.tensor(state['gaussian']['_rotation'], device='cuda')
+    gs._opacity = torch.tensor(state['gaussian']['_opacity'], device='cuda')
+
+    mesh = edict(
+        vertices=torch.tensor(state['mesh']['vertices'], device='cuda'),
+        faces=torch.tensor(state['mesh']['faces'], device='cuda'),
+    )
+
+    glb = postprocessing_utils.to_glb(gs, mesh, simplify=0.95, texture_size=1024, verbose=False)
+    glb.export(glb_path)
+
     return {
-        "trial_id": trial_id,
-        "preview_video": f"/preview/{trial_id}",
+        "model_uuid": trial_id,
+        "preview_video": video_path,
+        "glb_file": glb_path,
+        "output_images": output_image_paths,
         "errors": errors  # Include any errors encountered
     }
 
@@ -250,6 +280,10 @@ async def extract_glb(
     glb.export(glb_path)
 
     return FileResponse(glb_path, filename=f"{trial_id}.glb")
+
+
+
+
 
 @app.get("/health")
 async def health_check():

@@ -15,11 +15,6 @@ def call_create_3d_model_service(image_paths):
     # Check the response
     if response.status_code == 200:
         print("Response:", response.json())
-        response_json = response.json()
-        trial_id = response_json["trial_id"]
-        preview_video = response_json["preview_video"]
-        print(f"Trial ID: {trial_id}")
-        print(f"Preview Video: {preview_video}")
     else:
         print("Failed to call service:", response.status_code, response.text)
 
