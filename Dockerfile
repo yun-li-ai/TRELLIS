@@ -8,7 +8,7 @@ WORKDIR /app
 ENV PYTHONPATH=/app
 # If you really need to append to an existing PYTHONPATH, use:
 # ENV PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}/app"
-ENV ATTN_BACKEND=flash-attn
+ENV ATTN_BACKEND=xformers
 ENV SPCONV_ALGO=native
 ENV TORCH_CUDA_ARCH_LIST="7.0;7.5;8.0;8.6"
 ENV CXX=/usr/local/bin/gxx-wrapper
