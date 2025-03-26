@@ -17,6 +17,8 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
+print(f"Using attention backend: {os.environ.get('ATTN_BACKEND', 'default')}")
+
 
 class Create3DModelRequestModel(BaseModel):
     image_paths: List[str]
@@ -61,6 +63,10 @@ async def startup_event():
     """Run cleanup on startup"""
     cleanup_old_files(TMP_DIR)
 
+
+# Before pipeline initialization
+if os.environ.get("ATTN_BACKEND") != "xformers":
+    print("Warning: ATTN_BACKEND not set to xformers")
 
 # Initialize pipeline globally
 pipeline = TrellisImageTo3DPipeline.from_pretrained("JeffreyXiang/TRELLIS-image-large")
@@ -253,7 +259,11 @@ async def extract_glb(
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "attention_backend": os.environ.get("ATTN_BACKEND", "default"),
+        "gpu_info": torch.cuda.get_device_properties(0).__str__(),
+    }
 
 
 if __name__ == "__main__":
