@@ -1,6 +1,7 @@
 # Use this docker file if headless_app.py and postprocessing_utils.py are updated.
 
-FROM sensor-sim-trellis-base:1.0.11-withmodels
+# FROM sensor-sim-trellis-base:1.0.11-withmodels
+FROM quay.io/applied_dev/applied2:trellis-1.0.19
 
 # Set environment variable before any Python code runs
 ENV ATTN_BACKEND=xformers

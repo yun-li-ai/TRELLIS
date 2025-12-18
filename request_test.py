@@ -1,9 +1,10 @@
 import requests
 import uuid
 
+HOST_PORT = 8000
 
 def call_create_3d_model_service(body):
-    url = "http://localhost:8000/create-3d-model-from-paths"
+    url = f"http://localhost:{HOST_PORT}/create-3d-model-from-paths"
 
     response = requests.post(url, json=body)
 
@@ -15,7 +16,7 @@ def call_create_3d_model_service(body):
 
 
 def call_extract_glb_service(job_id, mesh_simplify=0.95, texture_size=1024):
-    url = f"http://localhost:8000/extract-glb/{job_id}"  # Adjust the URL if your service is hosted elsewhere
+    url = f"http://localhost:{HOST_PORT}/extract-glb/{job_id}"  # Adjust the URL if your service is hosted elsewhere
 
     # Prepare the query parameters
     params = {"mesh_simplify": mesh_simplify, "texture_size": texture_size}
@@ -38,6 +39,10 @@ def call_extract_glb_service(job_id, mesh_simplify=0.95, texture_size=1024):
 if __name__ == "__main__":
     body = {
         "image_paths": [
+            # Note, those should be the path in the container, you will need to
+            # 1. Manually copy some test image into the container
+            # 2. Change the path to the path in the container
+            # 3. Run   `python request_test.py` from the host machine
             "/home/yun/Downloads/3d/teslacybertrucknypd3dsmodel025.jpg",
             "/home/yun/Downloads/3d/teslacybertrucknypd3dsmodel014.jpg",
             "/home/yun/Downloads/3d/teslacybertrucknypd3dsmodel001.jpg",
