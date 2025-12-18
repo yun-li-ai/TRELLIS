@@ -1,3 +1,5 @@
+# Modifications Copyright (c) Applied Intuition, Inc.
+
 # Use PyTorch base image with CUDA 11.8
 FROM pytorch/pytorch:2.4.0-cuda11.8-cudnn9-devel
 

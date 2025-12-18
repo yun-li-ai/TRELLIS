@@ -1,3 +1,6 @@
+Modifications Copyright (c) Applied Intuition, Inc.
+
+
 This documents Applied’s customization to the TRELLIS repo.
 
 ### Which Dockerfile should I use?

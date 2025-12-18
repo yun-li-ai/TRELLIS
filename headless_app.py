@@ -1,3 +1,5 @@
+# Modifications Copyright (c) Applied Intuition, Inc.
+
 import os
 from typing import *
 import torch
